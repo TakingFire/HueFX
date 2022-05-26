@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>Hue Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"/>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script defer type="text/javascript" src="main.js"></script>
+  </head>
+  <body>
+    <div id="presets">
+
+      <p style="text-align:center">Active</p>
+      <div class="light grid active" style="margin-bottom:6px;">
+        <button type="button" class="preset"></button>
+        <button type="button" class="preset"></button>
+        <button type="button" class="preset"></button>
+        <button type="button" class="preset"></button>
+      </div>
+
+      <p style="text-align:center">Saved</p>
+      <div class="light grid custom" style="margin-bottom:2px;">
+        <button type="button" id="add-preset" style="font-size:20px;" title="Add Preset">+</button>
+        <button type="button" id="clear-presets" style="font-size:20px;" title="Clear Presets">×</button>
+      </div>
+
+    </div>
+
+    <div id="content">
+      <div id="status">
+        <svg viewBox="3 3 18 18" xmlns="http://www.w3.org/2000/svg" style="margin-right:12px;">
+          <path d="M 12 15 C 10.34375 15 9 13.65625 9 12 C 9 10.34375 10.34375 9 12 9 C 13.65625 9 15 10.34375 15 12 C 15 13.65625 13.65625 15 12 15 M 12 4.5 C 12.414062 4.5 12.75 4.835938 12.75 5.25 C 12.75 5.664062 12.414062 6 12 6 C 11.585938 6 11.25 5.664062 11.25 5.25 C 11.25 4.835938 11.585938 4.5 12 4.5 M 18 3 L 6 3 C 4.351562 3 3 4.351562 3 6 L 3 18 C 3 19.648438 4.351562 21 6 21 L 18 21 C 19.648438 21 21 19.648438 21 18 L 21 6 C 21 4.351562 19.648438 3 18 3 "/>
+        </svg>
+        <span>Connecting...</span>
+      </div>
+
+      <div id="header">
+        <div style="width:100%;display:flex;justify-content:space-evenly;margin-bottom:14px;">
+          <button type="button" id="start-all" disabled>⯈ Start All</button>
+          <button type="button" id="refresh" disabled>Refresh Lights</button>
+        </div>
+      </div>
+
+      <div id="lights">
+
+        <!-- <div class="light">
+
+          <div class="info">
+            <div class="overlay"></div>
+
+            <div style="display:flex;">
+              <svg viewBox="2 2 21 21" xmlns="http://www.w3.org/2000/svg">
+                <title>Hue lightstrip plus</title>
+                <path d=""/></svg>
+
+                <div >
+                  <div style="display:flex;align-items:flex-start;">
+                    <span class="light-name">Light</span>
+                    <span class="light-id">#00</span>
+                  </div>
+
+                  <span class="light-id">Placeholder</span>
+                </div>
+            </div>
+
+            <div style="display:flex;">
+              <div style="display:flex;">
+                <select class="mode indent" style="border-radius:6px 0 0 6px;border-right:none">
+                  <option value="color">Cycle</option>
+                  <option value="color">Color</option>
+                </select>
+                <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start">⯈</button>
+              </div>
+              <button type="button" class="dropdown" title="Expand"><span>🡣</span></button>
+              <button type="button" class="preset" title="Presets"></button>
+            </div>
+          </div>
+
+          <div class="config">
+
+            <div class="colors">
+              <div class="progress"></div>
+              <div class="gradient"></div>
+              <label class="color" style="background-color:#ac4142">
+                <input type="color" value="#ac4142">
+              </label>
+              <label class="color" style="background-color:#f4bf75">
+                <input type="color" value="#f4bf75">
+              </label>
+              <label class="color" style="background-color:#6a9fb5">
+                <input type="color" value="#6a9fb5">
+              </label>
+
+              <div style="display:flex;max-width:0;">
+                <button class="remove" type="button" title="Remove Color">–</button>
+                <button class="add" type="button" title="Add Color">+</button>
+              </div>
+            </div>
+
+            <div class="option option-bri">
+              <label class="">Brightness:</label>
+              <input type="range" min="0" max="254" step="1" value="200">
+              <input type="number" value="200">
+            </div>
+            <div class="option option-spd">
+              <label>Speed:</label>
+              <input type="range" min="0" max="30" step="1" value="6">
+              <input type="number" value="6">
+            </div>
+
+          </div>
+
+        </div> -->
+
+      </div>
+      <p class="cred">Built by <a href="https://bacur.xyz" target="_blank">TF</a></p style="text-align:center;">
+    </div>
+  </body>
+</html>
