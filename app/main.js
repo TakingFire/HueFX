@@ -260,23 +260,21 @@ class Light {
       if (!self.playing) { clearInterval(this.loop); return; }
       let index = step;
 
-      console.log(self.dir);
-
       switch (self.dir) {
         // default:
         case 'forward': index = mod(step, self.colors.length); break;
         case 'bounce': index = triangle(mod(step, self.colors.length * 2), (self.colors.length * 2) - 2); break;
-        case 'reverse': index = self.colors.length - mod(step, self.colors.length); break;
+        case 'reverse': index = (self.colors.length - 1) - mod(step, self.colors.length); break;
       }
 
-      console.log(index);
+      // console.log(index);
 
-      // self.changeLight(
-      //   self.colors[index],
-      //   self.bri,
-      //   (self.spd / self.colors.length),
-      //   (index / (self.colors.length - 1)) * 100
-      // );
+      self.changeLight(
+        self.colors[index],
+        self.bri,
+        (self.spd / self.colors.length),
+        (index / (self.colors.length - 1)) * 100
+      );
 
       step++
     }
@@ -389,7 +387,7 @@ async function authorizeBridge() {
 
       let request = async function() {
         const userid = await $.post(`http://${bridgeIp}/api`, JSON.stringify({ "devicetype": "HueFX#TF", "generateclientkey": true }), dataType = 'json');
-        console.log(userid);
+        // console.log(userid);
 
         if ('success' in userid[0]) {
           window.clearInterval(loop);
@@ -549,7 +547,6 @@ async function main() {
 
   $('.start').on('click', function() {
     let light = getLight($(this));
-    console.log(light.color);
 
     if (light.mode == 'color') {
       light.changeLight(light.color, light.bri, 1);
