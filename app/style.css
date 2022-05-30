@@ -12,6 +12,7 @@ body {
   display          : flex;
   width            : 100vw;
   height           : 100vh;
+  padding          : 12px;
   overflow         : hidden;
   background-color : #3d3d3d;
   align-items      : center;
@@ -53,7 +54,8 @@ span {
 }
 
 button,
-select {
+select,
+.radio {
   width            : 36px;
   height           : 36px;
   padding          : 0px 6px;
@@ -69,7 +71,8 @@ select {
 }
 
 button:hover,
-select:hover {
+select:hover,
+.radio:hover {
   background-color : transparent;
   box-shadow       : 2px 2px 4px #00000040;
   transition       : 0.1s;
@@ -78,13 +81,14 @@ select:hover {
 .enabled,
 button:active,
 button:disabled,
-select:focus {
+select:focus,
+.radio:active {
   background-color : #303233;
   box-shadow       : inset 2px 2px 4px #00000040;
   transition       : 0.1s;
 }
 
-button:disabled {
+:disabled {
   cursor : not-allowed;
 }
 
@@ -116,8 +120,8 @@ button:disabled {
 #refresh:disabled,
 #start-all:active,
 #start-all:disabled {
-  background       : #303233;
-  background-color : #303233;
+  background       : #30323380;
+  background-color : #30323380;
   transition       : 0.1s;
 }
 
@@ -144,7 +148,6 @@ button:disabled {
   max-width        : 500px;
   height           : 100%;
   max-height       : 800px;
-  margin           : 12px;
   padding          : 12px;
   padding-right    : 6px;
   overflow         : hidden;
@@ -160,6 +163,13 @@ button:disabled {
   overflow-y : auto;
   flex-flow  : column;
   flex-grow  : 1;
+  /* moz scroll style */
+  scrollbar-width: thin;
+  scrollbar-color: #303233 transparent;
+}
+
+#lights:hover {
+  scrollbar-color: #3d3d3d transparent;
 }
 
 .light {
@@ -356,6 +366,7 @@ button:disabled {
   border        : 2px solid #3d3d3d80;
   border-radius : 50%;
   box-shadow    : 0px 2px 4px #00000080;
+  pointer-events: none;
 }
 
 .gradient {
@@ -386,6 +397,7 @@ button:disabled {
   margin          : 4px 6px;
   flex-flow       : row nowrap;
   justify-content : space-between;
+  align-items: center;
 }
 
 .option label {
@@ -443,6 +455,47 @@ input[type=number] {
   text-align       : center;
   font-size        : 14px;
   font-weight      : 500;
+}
+
+.radio {
+  position: relative;
+  flex-grow: 1;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.radio.enabled {
+  background: #1d1f2130;
+}
+
+input[type=radio] {
+  position: absolute;
+  opacity: 0;
+  top: 0;
+  left: 16px;
+  margin: 0;
+}
+
+.left {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-right: 0;
+  border-right: none;
+}
+
+.center {
+  border-radius: 0;
+  margin: 0;
+}
+
+.right {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  margin-left: 0;
+  border-left: none;
 }
 
 .cred {

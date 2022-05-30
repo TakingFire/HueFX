@@ -45,6 +45,14 @@ function lightIcon(archetype = '') {
   return icon;
 }
 
+function mod(n, m) {
+  return ((n % m) + m) % m;
+}
+
+function triangle(t, a) {
+  return Math.abs(((t + a / 2) % a) - a / 2);
+}
+
 const lights = {};
 
 class Light {
@@ -53,85 +61,154 @@ class Light {
     this.info = info;
     this.playing = false;
     this.loop = null;
-    this.bri = info.state.bri;
-    this.spd = 30;
 
-    this.colors = ['#ac4142', '#f4bf75', '#6a9fb5'];
+    if (localStorage[id] === (null || undefined)) {
+      this.mode = 'cycle';
+      this.bri = info.state.bri;
+      this.spd = 30;
+      this.dir = 'forward';
+
+      this.color = '#f4bf75';
+      this.colors = ['#ac4142', '#f4bf75', '#6a9fb5'];
+    }
+
+    // TODO: Use destructuring assignment
+    else {
+      const prefs = JSON.parse(localStorage[id]);
+
+      this.mode = prefs.mode;
+      this.bri = info.state.bri;
+      this.spd = prefs.spd;
+      this.dir = prefs.dir;
+
+      this.color = prefs.color;
+      this.colors = prefs.colors;
+    }
+
+  }
+
+  storePrefs() {
+    const prefs = {
+      mode: this.mode,
+      bri: this.bri,
+      spd: this.spd,
+      dir: this.dir,
+
+      color: this.color,
+      colors: this.colors
+    }
+
+    localStorage[this.id] = JSON.stringify(prefs);
   }
 
   createElement() {
     const colors = [];
 
-    this.colors.forEach(function(color) {
+    if (this.mode == 'color') {
       const element =
-        `<label class="color" style="background-color:${color}">
-          <input type="color" value="${color}">
+        `<label class="color" style="background-color:${this.color}">
+          <input type="color" value="${this.color}">
         </label>`;
       colors.push(element);
-    })
+    }
+
+    else {
+      this.colors.forEach(function(color) {
+        const element =
+          `<label class="color" style="background-color:${color}">
+            <input type="color" value="${color}">
+          </label>`;
+        colors.push(element);
+      })
+    }
 
     const light =
       `<div id="${this.id}" class="light">
 
-      <div class="info">
-        <div class="overlay"></div>
+        <div class="info">
+          <div class="overlay"></div>
 
-        <div style="display:flex;">
-          <svg viewBox="2 2 21 21" xmlns="http://www.w3.org/2000/svg" style="fill:#c5c8c6;">
-            <title>${this.info.productname + '\n' + this.info.productid}</title>
-            <path d="${lightIcon(this.info.config.archetype)}"/></svg>
-
-            <div >
-              <div style="display:flex;align-items:flex-start;">
-                <span class="light-name">${this.info.name}</span>
-                <span class="light-id">${'#' + (this.id.length < 2 ? '0' + this.id : this.id)}</span>
-              </div>
-
-              <span class=light-id>${this.info.state.reachable ? 'Connected' : 'Not Reachable'}</span>
-            </div>
-        </div>
-
-        <div style="display:flex;">
           <div style="display:flex;">
-            <select class="mode indent" style="border-radius:6px 0 0 6px;border-right:none">
-              <option value="color">Cycle</option>
-            </select>
-            <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start">⯈</button>
+            <svg viewBox="2 2 21 21" xmlns="http://www.w3.org/2000/svg" style="fill:#c5c8c6;">
+              <title>${this.info.productname + '\n' + this.info.productid}</title>
+              <path d="${lightIcon(this.info.config.archetype)}"/></svg>
+
+              <div >
+                <div style="display:flex;align-items:flex-start;">
+                  <span class="light-name">${this.info.name}</span>
+                  <span class="light-id">${'#' + (this.id.length < 2 ? '0' + this.id : this.id)}</span>
+                </div>
+
+                <span class=light-id>${this.info.state.reachable ? 'Connected' : 'Not Reachable'}</span>
+              </div>
           </div>
-          <button type="button" class="dropdown" title="Expand"><span>🡣</span></button>
-          <button type="button" class="preset" title="Presets" style="background: conic-gradient(${[...this.colors, this.colors[0]].join(',')})" data-colors='${JSON.stringify(this.colors)}'></button>
-        </div>
-      </div>
 
-      <div class="config">
-
-        <div class="colors">
-          <div class="progress"></div>
-          <div class="gradient" style="background: linear-gradient(90deg, ${this.colors.join(', ')})"></div>
-          ${colors.join('')}
-
-          <div style="display:flex;max-width:0;">
-            <button class="remove" type="button" title="Remove Color">–</button>
-            <button class="add" type="button" title="Add Color">+</button>
+          <div style="display:flex;">
+            <div style="display:flex;">
+              <select class="mode indent" style="border-radius:6px 0 0 6px;border-right:none" title="Effect Type">
+                <option value="color" ${this.mode == 'color' ? 'selected' : ''} title="Set light to selected color">Color</option>
+                <option value="cycle" ${this.mode == 'cycle' ? 'selected' : ''} title="Smoothly loop between selected colors">Cycle</option>
+              </select>
+              <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start"
+                ${this.info.state.reachable ? '' : 'disabled '}
+                ${this.playing ? 'enabled>■' : '>⯈'}</button>
+            </div>
+            <button type="button" class="dropdown" title="Expand"><span>🡣</span></button>
+            <button type="button" class="preset" title="Presets"
+              style="background: conic-gradient(${[...this.colors, this.colors[0]].join(',')})"
+              data-colors='${JSON.stringify(this.colors)}'>
+            </button>
           </div>
         </div>
 
-        <div class="option option-bri">
-          <label class="">Brightness:</label>
-          <input type="range" min="0" max="254" step="1" value="${this.bri}">
-          <input type="number" min="0" max="254" step="1" value="${this.bri}">
-        </div>
-        <div class="option option-spd">
-          <label>Speed:</label>
-          <input type="range" min="${this.colors.length}" max="240" step="1" value="${this.spd}">
-          <input type="number" min="${this.colors.length}" max="240" step="1" value="${this.spd}">
+        <div class="config">
+
+          <div class="colors">
+            <div class="progress"></div>
+            <div class="gradient" style="background: linear-gradient(90deg, ${this.colors.join(', ')})"></div>
+            ${colors.join('')}
+
+            <div style="display:flex;max-width:0;">
+              <button class="remove" type="button" title="Remove Color">–</button>
+              <button class="add" type="button" title="Add Color">+</button>
+            </div>
+
+          </div>
+
+          <div class="options">
+            <div class="option option-bri">
+              <label class="">Brightness:</label>
+              <input type="range"  min="0" max="254" step="1" value="${this.bri}">
+              <input type="number" min="0" max="254" step="1" value="${this.bri}">
+            </div>
+            <div class="option option-spd">
+              <label>Speed:</label>
+              <input type="range"  min="${this.colors.length}" max="240" step="1" value="${this.spd}">
+              <input type="number" min="${this.colors.length}" max="240" step="1" value="${this.spd}">
+            </div>
+            <div class="option option-dir" style="justify-content:flex-start;">
+              <label>Motion:</label>
+              <div style="width:60%;display:flex;margin:0 16px;">
+                <label class="radio left ${this.dir == 'forward' ? 'enabled' : ''}">Forward
+                  <input type="radio" name="dir" value="forward" ${this.dir == 'forward' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.dir == 'bounce' ? 'enabled' : ''}">Bounce
+                  <input type="radio" name="dir" value="bounce" ${this.dir == 'bounce' ? 'checked' : ''}>
+                </label>
+                <label class="radio right ${this.dir == 'reverse' ? 'enabled' : ''}">Reverse
+                  <input type="radio" name="dir" value="reverse" ${this.dir == 'reverse' ? 'checked' : ''}>
+                </label>
+              </div>
+            </div>
         </div>
 
       </div>
 
     </div>`;
 
-    return $(light);
+    let test = $(light);
+    test.on('click', function() { $(this).css('background-color', 'blue') });
+    return test;
   }
 
   changeLight(color, bri, time, progress = 0) {
@@ -169,7 +246,8 @@ class Light {
       left: progress + '%'
     }, {
       duration: time * 1000,
-      easing: 'linear'
+      easing: 'linear',
+      queue: false
     });
   }
 
@@ -180,16 +258,27 @@ class Light {
 
     function loop() {
       if (!self.playing) { clearInterval(this.loop); return; }
-      if (step > self.colors.length - 1) { step = 0 }
+      let index = step;
 
-      self.changeLight(
-        self.colors[step],
-        self.bri,
-        (self.spd / self.colors.length),
-        (step / (self.colors.length - 1)) * 100
-      );
+      console.log(self.dir);
 
-      step++;
+      switch (self.dir) {
+        // default:
+        case 'forward': index = mod(step, self.colors.length); break;
+        case 'bounce': index = triangle(mod(step, self.colors.length * 2), (self.colors.length * 2) - 2); break;
+        case 'reverse': index = self.colors.length - mod(step, self.colors.length); break;
+      }
+
+      console.log(index);
+
+      // self.changeLight(
+      //   self.colors[index],
+      //   self.bri,
+      //   (self.spd / self.colors.length),
+      //   (index / (self.colors.length - 1)) * 100
+      // );
+
+      step++
     }
 
     loop();
@@ -203,8 +292,42 @@ class Light {
     this.changeLight(
       this.info.state.xy,
       this.info.state.bri,
-      (this.spd / this.colors.length) / 2
+      (this.spd / this.colors.length) / 4
     );
+  }
+
+  updateColors(inputs = true) {
+    let colors = this.mode != 'color' ? this.colors : [this.color];
+    let light = $('#' + this.id);
+
+    light.find('.gradient')
+      .css('background', `linear-gradient(90deg, ${colors.length > 1 ? colors.join(',') : colors[0] + ',' + colors[0]})`);
+
+    light.find('.preset').add($('#presets .active .preset').eq(this.id - 1))
+      .css('background', `conic-gradient(${[...colors, colors[0]].join(',')})`)
+      .data('colors', colors);
+
+    if (inputs && colors.length != light.find('.color').length) {
+      let expanded = light.find('.color').hasClass('color-expanded');
+      light.find('.color').remove();
+
+      colors.forEach(function(color) {
+        let element =
+          `<label class="color ${expanded ? 'color-expanded' : ''}" style="background-color:${color}">
+              <input type="color" value="${color}">
+            </label>`;
+        light.find('.add').parent().before(element);
+      })
+
+      light.find('.option-spd input').attr('min', colors.length);
+    }
+
+    else {
+      colors.map(function(color, i) {
+        light.find('.color').eq(i).css('background-color', color);
+        light.find('.color input').eq(i).val(color);
+      })
+    }
   }
 
 }
@@ -213,49 +336,16 @@ function getLight(el) {
   return lights[$(el).parents('.light').attr('id')];
 }
 
-function updateColors(id, inputs = true) {
-  let colors = lights[id].colors;
-  let light = $('#' + id);
-
-  light.find('.gradient')
-    .css('background', `linear-gradient(90deg, ${colors.join(',')})`);
-
-  light.find('.preset').add($('#presets .active .preset').eq(id - 1))
-    .css('background', `conic-gradient(${[...colors, colors[0]].join(',')})`)
-    .data('colors', colors);
-
-  if (inputs && colors.length != light.find('.color').length) {
-    let expanded = light.find('.color').hasClass('color-expanded');
-    light.find('.color').remove();
-
-    colors.forEach(function(color) {
-      let element =
-        `<label class="color ${expanded ? 'color-expanded' : ''}" style="background-color:${color}">
-            <input type="color" value="${color}">
-          </label>`;
-      light.find('.add').parent().before(element);
-    })
-
-    light.find('.option-spd input').attr('min', colors.length);
-  }
-
-  else {
-    colors.map(function(color, i) {
-      light.find('.color').eq(i).css('background-color', color);
-      light.find('.color input').eq(i).val(color);
-    })
-  }
-}
-
 function updatePresets() {
   if (localStorage['presets'] === (null || undefined)) {
     const defaults = [
       ['#ac4142', '#f4bf75', '#6a9fb5'],
       ['#e17761', '#f9c68d', '#f9e9a4', '#c8e394', '#86dbb1'],
       ['#fa9eaa', '#fac8be', '#faeec8', '#7dc4ca', '#43888e'],
+      ['#f6bb93', '#fba490', '#fb897a', '#fc666f', '#b83253', '#651b40'],
       ['#5391ae', '#85b464', '#e2d269', '#ea915e', '#bc677b', '#7a4e8a'],
       ['#545588', '#678fa9', '#9edfce', '#c0efc7'],
-      ['#f320fa', '#c74bf6', '#9a75f0', '#6e9eeb', '#41c8e5', '#14f2e0'],
+      // ['#f320fa', '#c74bf6', '#9a75f0', '#6e9eeb', '#41c8e5', '#14f2e0'],
     ];
     localStorage['presets'] = JSON.stringify(defaults);
   }
@@ -282,6 +372,7 @@ async function initInterface() {
 
   for (id in lights) {
     $('#lights').append(lights[id].createElement());
+    lights[id].updateColors(true);
   }
 
   updatePresets();
@@ -322,7 +413,7 @@ async function authorizeBridge() {
 async function main() {
   await authorizeBridge();
 
-  $('.option').hide();
+  $('.options').hide();
 
   $('.dropdown').on('click', function() {
     $(this).children('span').toggleClass('rotate');
@@ -330,8 +421,8 @@ async function main() {
     main.find('.add, .remove').toggle();
     main.find('.color').toggleClass('color-expanded');
     main.find('.gradient').toggleClass('gradient-back');
-    main.find('.option').slideToggle(250);
-    main.find('.progress').fadeToggle(100);
+    main.find('.options').slideToggle(250);
+    main.find('.progress').fadeToggle({ duration: 100, queue: false });
   });
 
   $('.colors').hover(
@@ -348,7 +439,8 @@ async function main() {
 
     if (colors.length <= 10) {
       light.colors = [...colors, colors[colors.length - 1]];
-      updateColors(light.id, true);
+      light.updateColors(true);
+      light.storePrefs();
     }
   });
 
@@ -357,23 +449,38 @@ async function main() {
 
     if (light.colors.length > 2) {
       light.colors.pop();
-      updateColors(light.id, true);
+      light.updateColors(true);
+      light.storePrefs();
     }
   });
 
   $('.light').on('input', '.color input', function() {
     let values = $(this).parents('.colors').find('input').map(function() { return $(this).val() }).get();
     let light = getLight($(this));
-    light.colors = values;
-    updateColors(light.id, false);
+
+    light.mode == 'color' ?
+      light.color = values[0] :
+      light.colors = values;
+
+    light.updateColors(false);
+    light.storePrefs();
   });
 
   $('.option input').on('input', function() {
     $(this).parent().find('input').val($(this).val());
+  });
+
+  $('.option input').on('change', function() {
     let light = getLight($(this));
     let config = $(this).parents('.config');
     light.bri = parseInt(config.find('.option-bri input').val());
     light.spd = parseInt(config.find('.option-spd input').val());
+
+    light.dir = config.find('.option-dir input:checked').val();
+    config.find('.radio').removeClass('enabled');
+    config.find('.radio input:checked').parent().addClass('enabled');
+
+    light.storePrefs();
   });
 
   $('#lights .preset').on('click', function() {
@@ -385,10 +492,24 @@ async function main() {
       .data('target', getLight($(this)).id);
   });
 
+
+  $(document).on('mouseup', function(e) {
+    if ($('#presets').is(":visible") && $(e.target).closest("#presets").length === 0) {
+      $('#presets').fadeOut(150);
+    }
+  });
+
   $('#presets').on('click', '.preset', function() {
     let id = $('#presets').data('target');
-    lights[id].colors = $(this).data('colors');
-    updateColors(id);
+    let colors = $(this).data('colors');
+    let light = lights[id];
+
+    light.mode == 'color' ?
+      light.color = $(this).data('colors')[0] :
+      light.colors = $(this).data('colors');
+
+    light.updateColors();
+    light.storePrefs();
     $('#presets').fadeOut(150);
   });
 
@@ -406,16 +527,43 @@ async function main() {
     updatePresets();
   })
 
-  $('.start').on('click', function() {
-    const light = getLight($(this));
+  $('.mode').on('change', function() {
+    let main = $(this).parents('.light');
+    let light = lights[main.attr('id')];
 
-    if (light.playing) {
-      light.stopLoop();
-      $(this).removeClass('enabled').html('⯈').attr('title', 'Start');
+    light.mode = $(this).val();
+    main.find('.option').hide();
+
+    switch (light.mode) {
+      case 'color':
+        main.find('.option-bri').show();
+        break;
+
+      case 'cycle':
+        main.find('.option-bri, .option-spd, .option-dir').show();
+        break;
     }
+    light.updateColors();
+    light.storePrefs();
+  })
+
+  $('.start').on('click', function() {
+    let light = getLight($(this));
+    console.log(light.color);
+
+    if (light.mode == 'color') {
+      light.changeLight(light.color, light.bri, 1);
+    }
+
     else {
-      light.startLoop();
-      $(this).addClass('enabled').html('■').attr('title', 'Stop');
+      if (light.playing) {
+        light.stopLoop();
+        $(this).removeClass('enabled').html('⯈').attr('title', 'Start');
+      }
+      else {
+        light.startLoop();
+        $(this).addClass('enabled').html('■').attr('title', 'Stop');
+      }
     }
   });
 
