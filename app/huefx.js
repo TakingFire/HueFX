@@ -1,6 +1,14 @@
+const { ipcRenderer } = require('electron');
+const { setTimeout } = require('timers'); // dtls dependency
+require('binary-data');                   // dtls dependency
+const dtls = require('@nodertc/dtls');
+const { Buffer } = require('buffer');
+
+const isElectron = /electron/i.test(navigator.userAgent);
+const lights = {};
+
 function hexy(hex) {
-  let rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  [r, g, b] = [parseInt(rgb[1], 16), parseInt(rgb[2], 16), parseInt(rgb[3], 16)];
+  [r, g, b] = hexrgb(hex);
   // Source: https://github.com/ArndBrugman/huepi/blob/gh-pages/huepi.js#L713
   if (r > 0.04045) { r = Math.pow((r + 0.055) / (1.055), 2.4) }
   else { r = r / 12.92 }
@@ -13,6 +21,35 @@ function hexy(hex) {
   const z = r * 0.000088 + g * 0.072310 + b * 0.986039;
   if ((x + y + z) === 0) { return [0, 0] }
   return [x / (x + y + z), y / (x + y + z)];
+}
+
+function hexrgb(hex) {
+  var rgb = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return [parseInt(rgb[1], 16), parseInt(rgb[2], 16), parseInt(rgb[3], 16)];
+}
+
+function blend(c1, c2, fac) {
+  c1 = hexrgb(c1);
+  c2 = hexrgb(c2);
+
+  let blend = c1.map(function(e, i) {
+    let hex = Math.round((c1[i] * (1 - fac)) + (c2[i] * fac)).toString(16);
+    if (hex.length == 1) { hex = '0' + hex }
+    return hex;
+  });
+
+  return '#' + blend.join('');
+}
+
+function gradientSlice(colors, fac) {
+  if (fac % 1 == 0) { return colors[fac] }
+
+  else {
+    const range = fac * (colors.length - 1);
+    const step = Math.floor(range);
+
+    return blend(colors[step], colors[step + 1], range - step);
+  }
 }
 
 function lightIcon(archetype = '') {
@@ -53,8 +90,235 @@ function triangle(t, a) {
   return Math.abs(((t + a / 2) % a) - a / 2);
 }
 
-const lights = {};
-const isElectron = /electron/i.test(navigator.userAgent);
+const HueStream = {
+  udpSocket: null,
+  streamLoop: null,
+
+  createEntertainmentArea: async function() {
+    var bridgeIp = localStorage['bridgeIp'];
+    var apiKey = localStorage['apiKey'];
+
+    var groups = await $.get(`http://${bridgeIp}/api/${apiKey}/groups `);
+
+    for (key of Object.keys(groups)) {
+      let group = groups[key];
+
+      if (group['name'] == 'HueFX') {
+        await $.ajax({
+          type: 'PUT',
+          url: `http://${bridgeIp}/api/${apiKey}/groups/${key}`,
+          data: JSON.stringify({ lights: Object.keys(lights) }),
+          dataType: 'json',
+          success: function(response) {
+            console.log(response);
+            localStorage['lightGroup'] = key;
+          }
+        });
+        return;
+      }
+    }
+
+    await $.ajax({
+      type: 'POST',
+      url: `http://${bridgeIp}/api/${apiKey}/groups`,
+      data: JSON.stringify({
+        name: 'HueFX',
+        type: 'Entertainment',
+        class: 'TV',
+        lights: Object.keys(lights)
+      }),
+      dataType: 'json',
+      success: function(response) {
+        console.log(response);
+        localStorage['lightGroup'] = response[0]['success']['id'];
+      }
+    });
+  },
+
+  streamingMode: async function(state) {
+    var bridgeIp = localStorage['bridgeIp'];
+    var apiKey = localStorage['apiKey'];
+
+    await $.ajax({
+      type: 'PUT',
+      url: `http://${bridgeIp}/api/${apiKey}/groups/${localStorage['lightGroup']}`,
+      data: JSON.stringify({ stream: { active: state } }),
+      dataType: 'json',
+      success: function(response) { console.log(response) }
+    });
+  },
+
+  compilePacket: function() {
+    packet = [
+      Buffer.from('HueStream', 'ascii'),
+      Buffer.from([
+        0x01, 0x00, // version
+        0x00,       // sequence
+        0x00, 0x00, // reserved
+        0x01,       // use xy
+        0x00        // reserved
+      ])
+    ]
+
+    let ids = getActiveLights().slice(0, 10); // max 10
+
+    ids.forEach(function(id) {
+      packet.push(HueStream.lightBuffer(id));
+    })
+
+    return Buffer.concat(packet, 16 + (9 * ids.length));
+  },
+
+  lightBuffer: function(id) {
+    const arr = new ArrayBuffer(9);
+    const view = new DataView(arr);
+    const light = lights[id];
+
+    let fac = Math.max(Media.audio[light.bnd] / 255, 0);
+    let hex = gradientSlice(lights[id].colors, fac);
+    let xy = hexy(hex);
+
+    light.changeLight(hex, light.bri, 0, fac);
+
+    view.setUint8(0, 0);
+    view.setUint16(1, parseInt(id));
+    view.setUint16(3, parseInt(65535 * xy[0]));
+    view.setUint16(5, parseInt(65535 * xy[1]));
+    view.setUint16(7, parseInt(65535 * (light.bri / 254)));
+
+    return Buffer.from(arr);
+  },
+
+  startUdpSocket: async function() {
+    await this.createEntertainmentArea();
+    await this.streamingMode(true);
+
+    this.udpSocket = dtls.connect({
+      type: 'udp4',
+      remotePort: 2100,
+      remoteAddress: localStorage['bridgeIp'],
+      pskIdentity: localStorage['apiKey'],
+      pskSecret: Buffer.from(localStorage['clientKey'], 'hex'),
+      cipherSuites: ['TLS_PSK_WITH_AES_128_GCM_SHA256']
+    })
+
+    this.udpSocket.on('error', function(err) {
+      this.udpSocket = null;
+      console.error(err);
+    });
+
+    this.udpSocket.once('connect', function() {
+      console.log('Connected to Hue Stream');
+
+      HueStream.streamLoop = setInterval(function() {
+        Media.updateAudioAvg();
+        let packet = HueStream.compilePacket();
+        HueStream.udpSocket.write(packet);
+      }, 20);
+    });
+  },
+
+  stopUdpSocket: async function() {
+    await this.udpSocket.close();
+    this.udpSocket = null;
+
+    if (this.streamLoop) {
+      clearInterval(this.streamLoop);
+      this.streamloop = null;
+    }
+    await this.streamingMode(false);
+    console.log('Disconnected Hue Stream');
+  }
+}
+
+const Media = {
+  stream: null,
+  audio: [0, 0, 0, 0],
+  video: {
+    center: '#808000',
+    top: '#80FF00',
+    bottom: '#800000',
+    left: '#008000',
+    right: '#FF8000'
+  },
+
+  startMediaStream: async function() {
+    const config = {
+      audio: {
+        mandatory: {
+          chromeMediaSource: 'desktop'
+        }
+      },
+      video: {
+        mandatory: {
+          chromeMediaSource: 'desktop',
+          minWidth: 16, maxWidth: 16,
+          minHeight: 9, maxHeight: 9
+        }
+      }
+    }
+    this.stream = await navigator.mediaDevices.getUserMedia(config);
+    console.log(this.stream.getTracks());
+
+    this.initAudioAnalyser();
+  },
+
+  stopMediaStream: function() {
+    if (this.stream != null) {
+      this.stream.getTracks().forEach(function(track) {
+        track.stop();
+      });
+      this.stream = null;
+      this.updateAudioAvg = null;
+    }
+  },
+
+  updateFrameAvg: function() {
+    const video = document.querySelector('video');
+    video.srcObject = this.stream;
+    video.onloadedmetadata = (e) => video.play();
+    // await new Promise(r => video.onloadedmetadata = r);
+
+    const canvas = document.getElementById('canvas-input');
+    const ctx = canvas.getContext('2d');
+
+    function average() {
+      ctx.drawImage(video, -1, 0, 17, 9);
+
+      // let data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      // requestAnimationFrame(average);
+    }
+
+    requestAnimationFrame(average);
+  },
+
+  initAudioAnalyser: function() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 32;
+    analyser.minDecibels = -70;
+    analyser.maxDecibels = -10;
+
+    const source = ctx.createMediaStreamSource(this.stream);
+    source.connect(analyser);
+
+    let data = new Uint8Array(analyser.frequencyBinCount);
+
+    this.updateAudioAvg = function() {
+      analyser.maxDecibels = parseInt((1 - (lights[1].vol / 100)) * -50);
+      analyser.smoothingTimeConstant = lights[1].smt;
+      analyser.getByteFrequencyData(data);
+
+      Media.audio[0] = parseInt(data.slice(0, 6).reduce((a, b) => a + b, 0) / 6);
+      Media.audio[1] = parseInt(data.slice(0, 2).reduce((a, b) => a + b, 0) / 2);
+      Media.audio[2] = parseInt(data.slice(2, 4).reduce((a, b) => a + b, 0) / 2);
+      Media.audio[3] = parseInt(data.slice(4, 6).reduce((a, b) => a + b, 0) / 2);
+    }
+  },
+
+  updateAudioAvg: null // created by initAudioAnalyser
+}
 
 class Light {
   constructor(id, info) {
@@ -64,28 +328,22 @@ class Light {
     this.loop = null;
 
     if (localStorage[id] === (null || undefined)) {
-      this.mode = 'cycle';
-      this.bri = info.state.bri;
-      this.spd = 30;
-      this.dir = 'forward';
-
-      this.color = '#f4bf75';
-      this.colors = ['#ac4142', '#f4bf75', '#6a9fb5'];
+      localStorage[id] = JSON.stringify({});
     }
 
-    // TODO: Use destructuring assignment
-    else {
-      const prefs = JSON.parse(localStorage[id]);
+    const prefs = JSON.parse(localStorage[id]);
 
-      this.mode = prefs.mode;
-      this.bri = info.state.bri;
-      this.spd = prefs.spd;
-      this.dir = prefs.dir;
+    this.mode = prefs.mode || 'cycle'; // light mode
+    this.bri = info.state.bri;         // light brightness
+    this.spd = prefs.spd || 30;        // cycle speed
+    this.dir = prefs.dir || 'forward'; // cycle motion
+    this.reg = prefs.reg || 'center';  // video region
+    this.bnd = prefs.bnd || '0'        // audio band
+    this.smt = prefs.smt || 0.85;      // audio smoothing
+    this.vol = prefs.vol || 80;        // audio peak volume
 
-      this.color = prefs.color;
-      this.colors = prefs.colors;
-    }
-
+    this.color = prefs.color || '#f4bf75';
+    this.colors = prefs.colors || ['#ac4142', '#f4bf75', '#6a9fb5'];
   }
 
   storePrefs() {
@@ -94,6 +352,10 @@ class Light {
       bri: this.bri,
       spd: this.spd,
       dir: this.dir,
+      reg: this.reg,
+      bnd: this.bnd,
+      smt: this.smt,
+      vol: this.vol,
 
       color: this.color,
       colors: this.colors
@@ -149,6 +411,7 @@ class Light {
               <select class="mode indent" style="border-radius:6px 0 0 6px;border-right:none" title="Effect Type">
                 <option value="color" ${this.mode == 'color' ? 'selected' : ''} title="Set light to selected color">Color</option>
                 <option value="cycle" ${this.mode == 'cycle' ? 'selected' : ''} title="Smoothly loop between selected colors">Cycle</option>
+                <option value="audio" ${this.mode == 'audio' ? 'selected' : ''} title="Audio-responsive gradient progress" ${isElectron ? '' : 'disabled'}>Audio</option>
               </select>
               <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start"
                 ${this.info.state.reachable ? '' : 'disabled '}
@@ -176,20 +439,23 @@ class Light {
 
           </div>
 
-          <div class="options">
+          <form class="options">
+
             <div class="option option-bri">
-              <label class="">Brightness:</label>
+              <label class="option-name">Brightness:</label>
               <input type="range"  min="0" max="254" step="1" value="${this.bri}">
               <input type="number" min="0" max="254" step="1" value="${this.bri}">
             </div>
+
             <div class="option option-spd">
-              <label>Speed:</label>
+              <label class="option-name">Speed:</label>
               <input type="range"  min="${this.colors.length}" max="240" step="1" value="${this.spd}">
               <input type="number" min="${this.colors.length}" max="240" step="1" value="${this.spd}">
             </div>
+
             <div class="option option-dir" style="justify-content:flex-start;">
-              <label>Motion:</label>
-              <div style="width:60%;display:flex;margin:0 16px;">
+              <label class="option-name">Motion:</label>
+              <div style="width:60%;display:flex;margin:0 8px;">
                 <label class="radio left ${this.dir == 'forward' ? 'enabled' : ''}">Forward
                   <input type="radio" name="dir" value="forward" ${this.dir == 'forward' ? 'checked' : ''}>
                 </label>
@@ -201,8 +467,59 @@ class Light {
                 </label>
               </div>
             </div>
-        </div>
 
+            <div class="option option-smt">
+              <label class="option-name">Smoothing:</label>
+              <input type="range"  min="0.5" max="0.99" step="0.01" value="${this.smt}">
+              <input type="number" min="0.5" max="0.99" step="0.01" value="${this.smt}">
+            </div>
+
+            <div class="option option-vol">
+              <label class="option-name">Volume:</label>
+              <input type="range"  min="0" max="100" step="1" value="${this.vol}">
+              <input type="number" min="0" max="100" step="1" value="${this.vol}">
+            </div>
+
+            <div class="option option-reg" style="justify-content:flex-start;">
+              <label class="option-name">Region:</label>
+              <div style="width:60%;display:flex;margin:0 8px;">
+                <label class="radio left ${this.reg == 'center' ? 'enabled' : ''}" title="Center">▣
+                  <input type="radio" name="reg" value="center" ${this.reg == 'center' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.reg == 'left' ? 'enabled' : ''}" title="Left">◧
+                  <input type="radio" name="reg" value="left" ${this.reg == 'left' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.reg == 'top' ? 'enabled' : ''}" title="Top">⬒
+                  <input type="radio" name="reg" value="top" ${this.reg == 'top' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.reg == 'bottom' ? 'enabled' : ''}" title="Bottom">⬓
+                  <input type="radio" name="reg" value="bottom" ${this.reg == 'bottom' ? 'checked' : ''}>
+                </label>
+                <label class="radio right ${this.reg == 'right' ? 'enabled' : ''}" title="Right">◨
+                  <input type="radio" name="reg" value="right" ${this.reg == 'right' ? 'checked' : ''}>
+                </label>
+              </div>
+            </div>
+
+            <div class="option option-bnd" style="justify-content:flex-start;">
+              <label class="option-name">Frequency:</label>
+              <div style="width:60%;display:flex;margin:0 8px;">
+                <label class="radio left ${this.bnd == '0' ? 'enabled' : ''}">All
+                  <input type="radio" name="bnd" value="0" ${this.bnd == '0' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.bnd == '1' ? 'enabled' : ''}">Low
+                  <input type="radio" name="bnd" value="1" ${this.bnd == '1' ? 'checked' : ''}>
+                </label>
+                <label class="radio center ${this.bnd == '2' ? 'enabled' : ''}">Mid
+                  <input type="radio" name="bnd" value="2" ${this.bnd == '2' ? 'checked' : ''}>
+                </label>
+                <label class="radio right ${this.bnd == '3' ? 'enabled' : ''}">High
+                  <input type="radio" name="bnd" value="3" ${this.bnd == '3' ? 'checked' : ''}>
+                </label>
+              </div>
+            </div>
+
+        </form>
       </div>
 
     </div>`;
@@ -217,24 +534,40 @@ class Light {
     const apiKey = localStorage['apiKey'];
     const isHex = (typeof (color) == 'string');
 
-    let data = {
-      'xy': typeof (color) == 'object' ? color : hexy(color),
-      'bri': bri,
-      'transitiontime': time * 10
+    if (time != 0) {
+      let data = {
+        'xy': typeof (color) == 'object' ? color : hexy(color),
+        'bri': bri,
+        'transitiontime': time * 10
+      }
+
+      $.ajax({
+        type: 'PUT',
+        url: `http://${bridgeIp}/api/${apiKey}/lights/${this.id}/state`,
+        data: JSON.stringify(data),
+        dataType: 'json',
+        // success: function(response) { console.log(response) }
+      });
+
+      $(`#${this.id} .progress`).stop().animate({
+        left: (progress * 100) + '%'
+      }, {
+        duration: time * 1000,
+        easing: 'linear',
+        queue: false
+      });
     }
 
-    $.ajax({
-      type: 'PUT',
-      url: `http://${bridgeIp}/api/${apiKey}/lights/${this.id}/state`,
-      data: JSON.stringify(data),
-      dataType: 'json',
-      // success: function(response) { console.log(response) }
-    });
+    else {
+      $(`#${this.id} .progress`).css({
+        transition: 'none',
+        left: (progress * 100) + '%'
+      });
+    }
 
     $(`#${this.id} svg`).css({
       transition: time + 's',
       fill: isHex ? color : '',
-      // backgroundColor: isHex ? '#30323380' : '',
       opacity: bri / 254
     });
 
@@ -242,39 +575,28 @@ class Light {
       transition: time + 's',
       background: isHex ? `radial-gradient(circle at top left, ${color}, transparent 60%)` : ''
     });
-
-    $(`#${this.id} .progress`).stop().animate({
-      left: progress + '%'
-    }, {
-      duration: time * 1000,
-      easing: 'linear',
-      queue: false
-    });
   }
 
   startLoop() {
-    this.playing = true;
     const self = this;
     let step = 0;
 
     function loop() {
-      if (!self.playing) { clearInterval(this.loop); return; }
+      if (!self.playing) { self.stopLoop(); return; }
       let index = step;
 
       switch (self.dir) {
-        // default:
+        default:
         case 'forward': index = mod(step, self.colors.length); break;
         case 'bounce': index = triangle(mod(step, self.colors.length * 2), (self.colors.length * 2) - 2); break;
         case 'reverse': index = (self.colors.length - 1) - mod(step, self.colors.length); break;
       }
 
-      // console.log(index);
-
       self.changeLight(
         self.colors[index],
         self.bri,
         (self.spd / self.colors.length),
-        (index / (self.colors.length - 1)) * 100
+        (index / (self.colors.length - 1))
       );
 
       step++
@@ -287,6 +609,7 @@ class Light {
   stopLoop() {
     clearInterval(this.loop);
     this.playing = false;
+    this.loop = null;
 
     this.changeLight(
       this.info.state.xy,
@@ -328,11 +651,25 @@ class Light {
       })
     }
   }
-
 }
 
 function getLight(el) {
   return lights[$(el).parents('.light').attr('id')];
+}
+
+function getActiveLights() {
+  let active = [];
+  for (key in lights) {
+    let light = lights[key];
+    if (
+      light.playing &&
+      light.info.state.reachable &&
+      ['audio', 'video'].includes(light.mode)
+    ) {
+      active.push(light.id);
+    }
+  }
+  return active;
 }
 
 function updatePresets() {
@@ -415,6 +752,13 @@ async function authorizeBridge() {
 async function main() {
   await authorizeBridge();
 
+  $('#refresh').on('click', function() {
+    $('.start.enabled').click();
+    setTimeout(location.reload(), 10);
+  });
+
+  ipcRenderer.on('close', HueStream.stopUdpSocket);
+
   $('.options').hide();
 
   $('.dropdown').on('click', function() {
@@ -468,7 +812,7 @@ async function main() {
     light.storePrefs();
   });
 
-  $('.option input').on('input', function() {
+  $('.option:not(.option-smt, .option-vol) input').on('input', function() {
     $(this).parent().find('input').val($(this).val());
   });
 
@@ -477,12 +821,24 @@ async function main() {
     let config = $(this).parents('.config');
     light.bri = parseInt(config.find('.option-bri input').val());
     light.spd = parseInt(config.find('.option-spd input').val());
+    light.smt = parseFloat(config.find('.option-smt input').val());
+    light.vol = parseInt(config.find('.option-vol input').val());
 
     light.dir = config.find('.option-dir input:checked').val();
+    light.reg = config.find('.option-reg input:checked').val();
+    light.bnd = config.find('.option-bnd input:checked').val();
     config.find('.radio').removeClass('enabled');
     config.find('.radio input:checked').parent().addClass('enabled');
 
     light.storePrefs();
+  });
+
+  $('.option-smt input').on('input', function() {
+    $('.option-smt input').val($(this).val()).change();
+  });
+
+  $('.option-vol input').on('input', function() {
+    $('.option-vol input').val($(this).val()).change();
   });
 
   $('#lights .preset').on('click', function() {
@@ -494,7 +850,6 @@ async function main() {
       .css('left', !isElectron ? (content.offset().left + content.width() + 36) : '')
       .data('target', getLight($(this)).id);
   });
-
 
   $(document).on('mouseup', function(e) {
     if ($('#presets').is(":visible") && $(e.target).closest("#presets").length === 0) {
@@ -530,7 +885,7 @@ async function main() {
   $('#clear-presets').on('click', function() {
     localStorage.removeItem('presets');
     updatePresets();
-  })
+  });
 
   $('.mode').on('change', function() {
     let main = $(this).parents('.light');
@@ -547,12 +902,16 @@ async function main() {
       case 'cycle':
         main.find('.option-bri, .option-spd, .option-dir').show();
         break;
+
+      case 'audio':
+        main.find('.option-bri, .option-smt, .option-bnd, .option-vol').show();
     }
     light.updateColors();
     light.storePrefs();
-  })
+  });
+  $('.mode').change();
 
-  $('.start').on('click', function() {
+  $('.start').on('click', async function() {
     let light = getLight($(this));
 
     if (light.mode == 'color') {
@@ -561,12 +920,55 @@ async function main() {
 
     else {
       if (light.playing) {
-        light.stopLoop();
+        light.playing = false;
         $(this).removeClass('enabled').html('⯈').attr('title', 'Start');
+
+        if (getActiveLights().length == 0) {
+          $('#start-all').removeClass('enabled').html('⯈ Start All');
+        }
+
+        switch (light.mode) {
+
+          case 'cycle':
+            light.stopLoop();
+            return;
+
+          case 'audio':
+            if (getActiveLights().length == 0) {
+              if (HueStream.udpSocket) { await HueStream.stopUdpSocket() }
+              if (Media.stream) { await Media.stopMediaStream() }
+            }
+
+            setTimeout(function() {
+              light.changeLight(
+                light.info.state.xy,
+                light.info.state.bri,
+                2
+              )
+            }, 100);
+            return;
+        }
       }
       else {
-        light.startLoop();
-        $(this).addClass('enabled').html('■').attr('title', 'Stop');
+        if (getActiveLights().length == lights.length) {
+          $('#start-all').addClass('enabled').html('■ Stop All');
+        }
+
+        switch (light.mode) {
+
+          case 'cycle':
+            light.playing = true;
+            light.startLoop();
+            $(this).addClass('enabled').html('■').attr('title', 'Stop');
+            return;
+
+          case 'audio':
+            light.playing = true;
+            if (!Media.stream) { await Media.startMediaStream() }
+            if (!HueStream.udpSocket) { await HueStream.startUdpSocket() }
+            $(this).addClass('enabled').html('■').attr('title', 'Stop');
+            return;
+        }
       }
     }
   });
@@ -581,11 +983,7 @@ async function main() {
       $('.start:enabled:not(.enabled)').click();
     }
   });
-
-  $('#refresh').on('click', function() {
-    $('.start.enabled').click();
-    setTimeout(location.reload(), 10);
-  });
 }
 
+if (!isElectron) { $('body').css('background-color', '#3d3d3d') }
 main();

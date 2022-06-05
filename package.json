@@ -2,7 +2,7 @@
   "name": "huefx",
   "productName": "HueFX",
   "author": "TakingFire",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A simple effects dashboard for Philips Hue lights.",
   "main": "./app/main.js",
   "repository": "github:TakingFire/HueFX",
@@ -13,7 +13,15 @@
     },
     "files": [
       "package.json",
-      "app/**/*"
+      "app/**/*",
+      {
+        "from": "node_modules/@nodertc/dtls/src/node_modules",
+        "to": "node_modules/@nodertc/dtls/src/node_modules"
+      },
+      {
+        "from": "node_modules/binary-data/src/node_modules",
+        "to": "node_modules/binary-data/src/node_modules"
+      }
     ],
     "appId": "xyz.bacur.huefx",
     "artifactName": "${productName}.${ext}",
@@ -31,6 +39,7 @@
     }
   },
   "dependencies": {
+    "@nodertc/dtls": "^0.6.0",
     "jquery": "^3.6.0"
   },
   "devDependencies": {

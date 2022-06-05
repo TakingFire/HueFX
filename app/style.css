@@ -202,7 +202,7 @@ select:focus,
 }
 
 .placeholder {
-  opacity: 0.4;
+  opacity: 0.6;
   min-height: 64px;
 }
 
@@ -433,17 +433,18 @@ select:focus,
   align-items: center;
 }
 
-.option label {
-  min-width   : 82px;
+.option-name {
+  min-width   : 78px;
   color       : #949495;
   text-align  : right;
   font-weight : 500;
+  font-size: 15px;
 }
 
 input[type=range] {
   -webkit-appearance : none;
   width              : 80%;
-  margin             : 0px 16px;
+  margin             : 0px 8px;
   background-color   : transparent;
 }
 
@@ -491,8 +492,11 @@ input[type=number] {
 }
 
 .radio {
+  padding: 0 6px;
+  font-weight: 500;
   position: relative;
-  flex-grow: 1;
+  flex: 1 2 min-content;
+  min-width: 0;
   height: 24px;
   display: flex;
   align-items: center;
@@ -508,7 +512,7 @@ input[type=radio] {
   position: absolute;
   opacity: 0;
   top: 0;
-  left: 16px;
+  left: 0;
   margin: 0;
 }
 
@@ -516,12 +520,12 @@ input[type=radio] {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   margin-right: 0;
-  border-right: none;
 }
 
 .center {
   border-radius: 0;
   margin: 0;
+  border-left: none;
 }
 
 .right {
