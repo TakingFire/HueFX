@@ -31,3 +31,11 @@
 * Improved behavior of start/stop buttons
 * Fixed radio buttons becoming unchecked on update
 * Various tweaks
+
+#### Patch 0.3.1:
++ Added Exit button
+
+* Fixed active presets being fixed at 4 slots
+* Fixed cycle speed desync if changed while animating
+* Fixed color flicker when audio hit max volume
+* Tweaked frequency bands for better representation

@@ -42,7 +42,8 @@ function blend(c1, c2, fac) {
 }
 
 function gradientSlice(colors, fac) {
-  if (fac % 1 == 0) { return colors[fac] }
+  if (fac <= 0) { return colors[0] }
+  else if (fac >= 1) { return colors[colors.length - 1] }
 
   else {
     const range = fac * (colors.length - 1);
@@ -203,7 +204,7 @@ const HueStream = {
     })
 
     this.udpSocket.on('error', function(err) {
-      this.udpSocket = null;
+      HueStream.udpSocket = null;
       console.error(err);
     });
 
@@ -294,7 +295,7 @@ const Media = {
   },
 
   initAudioAnalyser: function() {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 10000 });
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 32;
     analyser.minDecibels = -70;
@@ -310,10 +311,10 @@ const Media = {
       analyser.smoothingTimeConstant = lights[1].smt;
       analyser.getByteFrequencyData(data);
 
-      Media.audio[0] = parseInt(data.slice(0, 6).reduce((a, b) => a + b, 0) / 6);
-      Media.audio[1] = parseInt(data.slice(0, 2).reduce((a, b) => a + b, 0) / 2);
-      Media.audio[2] = parseInt(data.slice(2, 4).reduce((a, b) => a + b, 0) / 2);
-      Media.audio[3] = parseInt(data.slice(4, 6).reduce((a, b) => a + b, 0) / 2);
+      Media.audio[0] = parseInt(Math.min(data.slice(0, 12).reduce((a, b) => a + b, 0) / 8, 255));
+      Media.audio[1] = parseInt(data.slice(0, 2).reduce((a, b) => Math.max(a, b), 0));
+      Media.audio[2] = parseInt(data.slice(2, 5).reduce((a, b) => Math.max(a, b), 0));
+      Media.audio[3] = parseInt(data.slice(5, 10).reduce((a, b) => Math.max(a, b), 0));
     }
   },
 
@@ -709,6 +710,7 @@ async function initInterface() {
   $('.placeholder').remove();
 
   for (id in lights) {
+    $('#presets .active').append('<button type="button" class="preset"></button>');
     $('#lights').append(lights[id].createElement());
     lights[id].updateColors(true);
   }
