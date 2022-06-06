@@ -577,12 +577,12 @@ class Light {
     });
   }
 
-  startLoop() {
+  startCycle() {
     const self = this;
     let step = 0;
 
     function loop() {
-      if (!self.playing) { self.stopLoop(); return; }
+      if (!self.playing) { self.stopCycle(); return; }
       let index = step;
 
       switch (self.dir) {
@@ -599,15 +599,15 @@ class Light {
         (index / (self.colors.length - 1))
       );
 
-      step++
+      self.loop = setTimeout(loop, (self.spd / self.colors.length) * 1000);
+      step++;
     }
 
     loop();
-    this.loop = setInterval(loop, (this.spd / this.colors.length) * 1000);
   }
 
-  stopLoop() {
-    clearInterval(this.loop);
+  stopCycle() {
+    clearTimeout(this.loop);
     this.playing = false;
     this.loop = null;
 
@@ -930,7 +930,7 @@ async function main() {
         switch (light.mode) {
 
           case 'cycle':
-            light.stopLoop();
+            light.stopCycle();
             return;
 
           case 'audio':
@@ -958,7 +958,7 @@ async function main() {
 
           case 'cycle':
             light.playing = true;
-            light.startLoop();
+            light.startCycle();
             $(this).addClass('enabled').html('■').attr('title', 'Stop');
             return;
 
