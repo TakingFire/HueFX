@@ -12,9 +12,7 @@ body {
   display          : flex;
   width            : 100vw;
   height           : 100vh;
-  /* padding          : 12px; */
   overflow         : hidden;
-  /* background-color : #3d3d3d; */
   align-items      : center;
   justify-content  : center;
 }
@@ -107,10 +105,8 @@ select:focus,
   flex-flow   : column nowrap;
 }
 
-#refresh,
-#start-all {
+.button-header {
   width            : 180px;
-  /* margin           : 4px; */
   color            : #949495;
   border           : 2px solid #3d3d3d;
   border-radius    : 12px;
@@ -125,10 +121,8 @@ select:focus,
   transition       : 0.1s;
 }
 
-#refresh:active,
-#refresh:disabled,
-#start-all:active,
-#start-all:disabled {
+.button-header:active,
+.button-header:disabled {
   background       : #30323380;
   background-color : #30323380;
   transition       : 0.1s;

@@ -750,14 +750,22 @@ async function authorizeBridge() {
 }
 
 async function main() {
-  await authorizeBridge();
-
-  $('#refresh').on('click', function() {
-    $('.start.enabled').click();
-    setTimeout(location.reload(), 10);
+  ipcRenderer.on('close', async function() {
+    if (HueStream.udpSocket) { await HueStream.stopUdpSocket() }
+    if (Media.stream) { await Media.stopMediaStream() }
   });
 
-  ipcRenderer.on('close', HueStream.stopUdpSocket);
+  $('#exit').on('click', function() {
+    window.close();
+  })
+
+  $('#refresh').on('click', async function() {
+    if (HueStream.udpSocket) { await HueStream.stopUdpSocket() }
+    if (Media.stream) { await Media.stopMediaStream() }
+    location.reload();
+  });
+
+  await authorizeBridge();
 
   $('.options').hide();
 
@@ -985,5 +993,5 @@ async function main() {
   });
 }
 
-if (!isElectron) { $('body').css('background-color', '#3d3d3d') }
+if (!isElectron) { $('body').css({ 'background-color': '#3d3d3d', 'padding': '12px' }) }
 main();
