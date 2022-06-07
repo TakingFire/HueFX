@@ -1,5 +1,6 @@
 ## HueFX
-A simple effects dashboard for Philips Hue lights.
+A simple effects dashboard for Philips Hue lights.\
+Currently in active development!
 
-![](https://i.ibb.co/wcjMwPk/github1.gif)
+![Audio reactive lighting!](https://i.ibb.co/p4TwJkg/github3.gif)
 
