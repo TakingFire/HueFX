@@ -39,3 +39,14 @@
 * Fixed cycle speed desync if changed while animating
 * Fixed color flicker when audio hit max volume
 * Tweaked frequency bands for better representation
+
+
+#### Version 0.4.0:
++ Added options menu
+  + Added buttons to import/export preferences
+  + Added toggle to use mic/webcam instead of desktop
++ Added optional tray icon with light shortcuts
+
+* Shortened header buttons
+* Raised min audio smoothing from 0.5 to 0.7
+* Changed Audio mode description

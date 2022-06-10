@@ -5,7 +5,7 @@
     <title>HueFX</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap"/>
     <link rel="stylesheet" href="style.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> -->
     <script defer type="text/javascript" src="huefx.js"></script>
     <script>window.$ = window.jQuery = require('jquery');</script>
   </head>
@@ -19,10 +19,29 @@
 
       <p style="text-align:center">Saved</p>
       <div class="light grid custom" style="margin-bottom:2px;">
+        <!-- saved presets loaded at runtime -->
         <button type="button" id="add-preset" style="font-size:20px;" title="Add Preset">+</button>
         <button type="button" id="clear-presets" style="font-size:20px;" title="Clear Presets">×</button>
       </div>
 
+    </div>
+
+    <div id="options">
+      <div class="light" style="margin-right:0;">
+        <p style="text-align:center;font-size:16px;margin:6px;">Options</p>
+        <form class="config" style="padding-top:4px;">
+          <!-- options created at runtime -->
+        </form>
+      </div>
+
+      <p style="text-align:center;font-size:16px;margin:6px;">Preferences:</p>
+      <div style="width:100%;display:flex;justify-content:center;">
+        <button type="button" id="import-prefs" class="button-header left" style="border-right:2px solid #303233;">Import</button>
+        <button type="button" id="export-prefs" class="button-header center" style="border-right:2px solid #303233;">Export</button>
+        <button type="button" id="reset-prefs" class="button-header right" style="filter:sepia(0.4) hue-rotate(-30deg);transition:0.2s;">Reset</button>
+      </div>
+
+      <!-- <button type="button" id="close-options" class="button-header" style="width:100%;margin-top:16px;">Done</button> -->
     </div>
 
     <div id="content">
@@ -38,10 +57,11 @@
           <span>Connecting...</span>
         </div>
 
-        <div style="width:100%;display:flex;justify-content:space-evenly;margin-bottom:14px;">
+        <div style="width:100%;display:flex;justify-content:center;margin-bottom:14px;">
           <button type="button" id="start-all" class="button-header" style="margin-right:12px;" disabled>⯈ Start All</button>
-          <div style="display:flex;width:180px;">
-            <button type="button" id="refresh" class="button-header left" style="width:80px;font-size:17px;font-weight:700;">⭮</button>
+          <button type="button" id="open-options" class="button-header" style="margin-right:12px;" disabled>Options</button>
+          <div style="display:flex;flex-grow:1;margin-right:5px;">
+            <button type="button" id="refresh" class="button-header left">⭮</button>
             <button type="button" id="exit" class="button-header right">Exit</button>
           </div>
 
@@ -49,13 +69,11 @@
       </div>
 
       <div id="lights">
-
         <!-- .light elements created at runtime, start with placeholders -->
         <div class="placeholder light"><div class="gradient"></div></div>
         <div class="placeholder light"><div class="gradient"></div></div>
         <div class="placeholder light"><div class="gradient"></div></div>
         <div class="placeholder light"><div class="gradient"></div></div>
-
       </div>
 
       <!-- <div style="display:flex;justify-content:center;">
@@ -65,7 +83,7 @@
         <button onclick="Media.getFrameAverage();"></button>
       </div> -->
 
-      <p class="cred">Built by <a href="https://bacur.xyz" target="_blank">TF</a></p style="text-align:center;">
+      <p class="cred">Built by <a href="https://bacur.xyz" target="_blank">TF</a></p>
     </div>
   </body>
 </html>

@@ -244,20 +244,26 @@ const Media = {
   },
 
   startMediaStream: async function() {
-    const config = {
-      audio: {
-        mandatory: {
-          chromeMediaSource: 'desktop'
-        }
-      },
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          minWidth: 16, maxWidth: 16,
-          minHeight: 9, maxHeight: 9
+    let options = JSON.parse(localStorage['options']);
+    let config = {};
+
+    options.src == 'webcam' ?
+      config = { audio: true, video: false } :
+      config = {
+        audio: {
+          mandatory: {
+            chromeMediaSource: 'desktop'
+          }
+        },
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            minWidth: 16, maxWidth: 16,
+            minHeight: 9, maxHeight: 9
+          }
         }
       }
-    }
+
     this.stream = await navigator.mediaDevices.getUserMedia(config);
     console.log(this.stream.getTracks());
 
@@ -314,7 +320,7 @@ const Media = {
       Media.audio[0] = parseInt(Math.min(data.slice(0, 12).reduce((a, b) => a + b, 0) / 8, 255));
       Media.audio[1] = parseInt(data.slice(0, 2).reduce((a, b) => Math.max(a, b), 0));
       Media.audio[2] = parseInt(data.slice(2, 5).reduce((a, b) => Math.max(a, b), 0));
-      Media.audio[3] = parseInt(data.slice(5, 10).reduce((a, b) => Math.max(a, b), 0));
+      Media.audio[3] = parseInt(data.slice(5, 12).reduce((a, b) => Math.max(a, b), 0));
     }
   },
 
@@ -412,7 +418,7 @@ class Light {
               <select class="mode indent" style="border-radius:6px 0 0 6px;border-right:none" title="Effect Type">
                 <option value="color" ${this.mode == 'color' ? 'selected' : ''} title="Set light to selected color">Color</option>
                 <option value="cycle" ${this.mode == 'cycle' ? 'selected' : ''} title="Smoothly loop between selected colors">Cycle</option>
-                <option value="audio" ${this.mode == 'audio' ? 'selected' : ''} title="Audio-responsive gradient progress" ${isElectron ? '' : 'disabled'}>Audio</option>
+                <option value="audio" ${this.mode == 'audio' ? 'selected' : ''} title="Change light color with music" ${isElectron ? '' : 'disabled'}>Audio</option>
               </select>
               <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start"
                 ${this.info.state.reachable ? '' : 'disabled '}
@@ -471,8 +477,8 @@ class Light {
 
             <div class="option option-smt">
               <label class="option-name">Smoothing:</label>
-              <input type="range"  min="0.5" max="0.99" step="0.01" value="${this.smt}">
-              <input type="number" min="0.5" max="0.99" step="0.01" value="${this.smt}">
+              <input type="range"  min="0.7" max="0.99" step="0.01" value="${this.smt}">
+              <input type="number" min="0.7" max="0.99" step="0.01" value="${this.smt}">
             </div>
 
             <div class="option option-vol">
@@ -525,9 +531,7 @@ class Light {
 
     </div>`;
 
-    let test = $(light);
-    test.on('click', function() { $(this).css('background-color', 'blue') });
-    return test;
+    return $(light);
   }
 
   changeLight(color, bri, time, progress = 0) {
@@ -655,6 +659,7 @@ class Light {
 }
 
 function getLight(el) {
+  // Get light object from any node within a light element
   return lights[$(el).parents('.light').attr('id')];
 }
 
@@ -696,12 +701,56 @@ function updatePresets() {
   });
 }
 
+function initOptions() {
+  if (localStorage['options'] === (null || undefined)) {
+    localStorage['options'] = JSON.stringify({});
+  }
+
+  const options = JSON.parse(localStorage['options']);
+
+  let src = options.src || 'desktop';
+  let min = options.min || 'taskbar';
+
+  const elements =
+    `<div class="option option-src" style="justify-content:space-between;">
+      <label class="option-name">AV Source:</label>
+      <div style="width:70%;display:flex;margin-left:8px;">
+        <label class="radio left ${src == 'desktop' ? 'enabled' : ''}">Desktop
+          <input type="radio" name="src" value="desktop" ${src == 'desktop' ? 'checked' : ''}>
+        </label>
+        <label class="radio right ${src == 'webcam' ? 'enabled' : ''}">Webcam
+          <input type="radio" name="src" value="webcam" ${src == 'webcam' ? 'checked' : ''}>
+        </label>
+      </div>
+    </div>
+
+    <div class="option option-min" style="justify-content:space-between;">
+      <label class="option-name">Minimize:</label>
+      <div style="width:70%;display:flex;margin-left:8px;">
+        <label class="radio left ${min == 'taskbar' ? 'enabled' : ''}" style="flex-grow:0.5;">Taskbar
+          <input type="radio" name="min" value="taskbar" ${min == 'taskbar' ? 'checked' : ''}>
+        </label>
+        <label class="radio right ${min == 'tray' ? 'enabled' : ''}">App Tray
+          <input type="radio" name="min" value="tray" ${min == 'tray' ? 'checked' : ''}>
+        </label>
+      </div>
+    </div>`;
+
+  $('#options .config').prepend(elements);
+
+  // Send minimize option to main process
+  ipcRenderer.send('tray', {
+    enabled: (JSON.parse(localStorage['options']).min == 'tray'),
+    lights: lights
+  });
+}
+
 async function initInterface() {
   const bridgeIp = localStorage['bridgeIp'];
   const apiKey = localStorage['apiKey'];
   const bridgeConfig = await $.get(`http://${bridgeIp}/api/${apiKey}/config`);
   $('#status span').html(`Connected to Bridge: ${bridgeConfig['name']} (${bridgeIp})`);
-  $('#start-all, #refresh').prop('disabled', false);
+  $('#start-all, #open-options').prop('disabled', false);
 
   let lightlist = await $.get(`http://${bridgeIp}/api/${apiKey}/lights`);
   for (key in lightlist) { lights[key] = new Light(key, lightlist[key]) };
@@ -716,6 +765,7 @@ async function initInterface() {
   }
 
   updatePresets();
+  initOptions();
   return;
 }
 
@@ -738,7 +788,7 @@ async function authorizeBridge() {
 
           location.reload(); // TEMP FIX
           // await initInterface();
-          return
+          return;
         }
       }
       let loop = window.setInterval(request, 4000);
@@ -826,7 +876,7 @@ async function main() {
     $(this).parent().find('input').val($(this).val());
   });
 
-  $('.option input').on('change', function() {
+  $('#lights .option input').on('change', function() {
     let light = getLight($(this));
     let config = $(this).parents('.config');
     light.bri = parseInt(config.find('.option-bri input').val());
@@ -841,6 +891,88 @@ async function main() {
     config.find('.radio input:checked').parent().addClass('enabled');
 
     light.storePrefs();
+  });
+
+  $('#options .option input').on('change', function() {
+    let options = JSON.parse(localStorage['options']);
+    let config = $(this).parents('.config');
+
+    options.src = config.find('.option-src input:checked').val();
+    options.min = config.find('.option-min input:checked').val();
+
+    console.log(options);
+    localStorage['options'] = JSON.stringify(options);
+    config.find('.radio').removeClass('enabled');
+    config.find('.radio input:checked').parent().addClass('enabled');
+
+    // Update minimize option in main process
+    ipcRenderer.send('tray', {
+      enabled: (JSON.parse(localStorage['options']).min == 'tray'),
+      lights: lights
+    });
+  });
+
+  $('#export-prefs').on('click', async function() {
+    const options = {
+      excludeAcceptAllOption: true,
+      suggestedName: 'prefs.huefx',
+      types: [{
+        description: 'HueFX preferences',
+        accept: { 'application/json': ['.huefx', '.json'] }
+      }]
+    }
+
+    const path = await window.showSaveFilePicker(options);
+    const stream = await path.createWritable();
+
+    // Copy localStorage, excluding bridge information
+    const { apiKey, clientKey, bridgeIp, lightGroup, ...prefs } = localStorage;
+    const blob = new Blob([JSON.stringify(prefs)], { type: 'application/json' });
+
+    await stream.write(blob);
+    await stream.close();
+  });
+
+  $('#import-prefs').on('click', async function() {
+    const options = {
+      multiple: false,
+      excludeAcceptAllOption: true,
+      suggestedName: 'prefs.huefx',
+      types: [{
+        description: 'HueFX preferences',
+        accept: { 'application/json': ['.huefx', '.json'] }
+      }]
+    }
+
+    const path = await window.showOpenFilePicker(options);
+    const file = await path[0].getFile();
+    const text = await file.text();
+    const prefs = JSON.parse(text);
+
+    for (key in prefs) { localStorage[key] = prefs[key] }
+    location.reload();
+  });
+
+  let verify = false;
+  $('#reset-prefs').on('click', function() {
+    if (!verify) {
+      verify = true;
+      $(this).css('flex-grow', '3').html('Are You Sure?');
+
+      timer = window.setTimeout(function() {
+        $("#reset-prefs").css('flex-grow', '').html('Reset').off('click.verify');
+        verify = false;
+      }, 2000);
+
+      $(this).on('click.verify', function() {
+        $(this).off('click.verify').html('Resetting...');
+        window.clearTimeout(timer);
+        localStorage.removeItem('options');
+        localStorage.removeItem('presets');
+        for (key in lights) { localStorage.removeItem(key) }
+        location.reload();
+      })
+    }
   });
 
   $('.option-smt input').on('input', function() {
@@ -861,9 +993,21 @@ async function main() {
       .data('target', getLight($(this)).id);
   });
 
+  $('#open-options').on('click', function() {
+    let content = $('#content');
+
+    isElectron ? $('#filter').fadeIn(150) : {};
+    $('#options').fadeIn(150)
+      .css('left', !isElectron ? (content.offset().left + content.width() + 36) : '');
+  });
+
   $(document).on('mouseup', function(e) {
     if ($('#presets').is(":visible") && $(e.target).closest("#presets").length === 0) {
       $('#presets').fadeOut(150);
+      $('#filter').fadeOut(150);
+    }
+    if ($('#options').is(":visible") && $(e.target).closest("#options").length === 0) {
+      $('#options').fadeOut(150);
       $('#filter').fadeOut(150);
     }
   });
@@ -992,6 +1136,11 @@ async function main() {
       $(this).addClass('enabled').html('■ Stop All');
       $('.start:enabled:not(.enabled)').click();
     }
+  });
+
+  ipcRenderer.on('toggleLight', function(e, id) {
+    console.log(id);
+    $(`#${id} .start`).click();
   });
 }
 
