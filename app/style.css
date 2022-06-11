@@ -9,12 +9,12 @@
 }
 
 body {
-  display          : flex;
-  width            : 100vw;
-  height           : 100vh;
-  overflow         : hidden;
-  align-items      : center;
-  justify-content  : center;
+  display         : flex;
+  width           : 100vw;
+  height          : 100vh;
+  overflow        : hidden;
+  align-items     : center;
+  justify-content : center;
   /* transform-origin: top left; */
   /* transform: scale(1.3); */
 }
@@ -53,9 +53,9 @@ span {
   background-color : #3d3d3d;
 }
 
+.radio,
 button,
-select,
-.radio {
+select {
   width            : 36px;
   height           : 36px;
   padding          : 0px 6px;
@@ -70,19 +70,19 @@ select,
   cursor           : pointer;
 }
 
+.radio:hover,
 button:hover,
-select:hover,
-.radio:hover {
+select:hover {
   background-color : transparent;
   box-shadow       : 2px 2px 4px #00000040;
   transition       : 0.1s;
 }
 
 .enabled,
+.radio:active,
 button:active,
 button:disabled,
-select:focus,
-.radio:active {
+select:focus {
   background-color : #303233;
   box-shadow       : inset 2px 2px 4px #00000040;
   transition       : 0.1s;
@@ -93,11 +93,11 @@ select:focus,
 }
 
 #draggable {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 60px;
+  position : absolute;
+  top      : 0;
+  left     : 0;
+  width    : 100%;
+  height   : 60px;
   -webkit-app-region: drag;
 }
 
@@ -108,9 +108,7 @@ select:focus,
 }
 
 .button-header {
-  flex-grow: 1;
-  height: 32px;
-  flex-basis: max-content;
+  height           : 32px;
   color            : #949495;
   border           : 2px solid #3d3d3d;
   border-radius    : 12px;
@@ -122,26 +120,28 @@ select:focus,
   background-color : #303233;
   font-size        : 15px;
   font-weight      : 500;
+  flex-basis       : max-content;
+  flex-grow        : 1;
   transition       : 0.1s;
 }
 
 .button-header:active,
 .button-header:disabled {
+  border-color     : #303233;
   background       : #30323380;
   background-color : #30323380;
   transition       : 0.1s;
-  border-color: #303233;
 }
 
 .button-header:hover {
-  opacity: 0.8;
-  transition: 0.15s;
+  opacity    : 0.8;
+  transition : 0.15s;
 }
 
 #refresh {
-  font-size:17px;
-  font-weight:700;
-  border-right: 2px solid #303233;
+  border-right : 2px solid #303233;
+  font-size    : 17px;
+  font-weight  : 700;
 }
 
 #status {
@@ -156,9 +156,9 @@ select:focus,
 }
 
 #status span {
-  text-align: center;
   padding-bottom : 2px;
   border-bottom  : 1px dashed #3d3d3d;
+  text-align     : center;
 }
 
 #content {
@@ -183,13 +183,6 @@ select:focus,
   overflow-y : auto;
   flex-flow  : column;
   flex-grow  : 1;
-  /* moz scroll style */
-  scrollbar-width: thin;
-  scrollbar-color: #303233 transparent;
-}
-
-#lights:hover {
-  scrollbar-color: #3d3d3d transparent;
 }
 
 .light {
@@ -213,17 +206,17 @@ select:focus,
 }
 
 .light:last-child {
-  margin-bottom: 0;
+  margin-bottom : 0;
 }
 
 .placeholder {
-  opacity: 0.6;
-  min-height: 64px;
+  min-height : 64px;
+  opacity    : 0.6;
 }
 
 .placeholder .gradient {
-  bottom:0;
-  opacity:0.4;
+  bottom  : 0;
+  opacity : 0.4;
 }
 
 .overlay {
@@ -292,20 +285,20 @@ select:focus,
 }
 
 #filter {
-  display: none;
-  z-index: 2;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  z-index        : 2;
+  display        : none;
+  position       : absolute;
+  top            : 0;
+  left           : 0;
+  width          : 100%;
+  height         : 100%;
+  user-select    : none;
+  pointer-events : none;
   backdrop-filter: blur(2px) brightness(0.9);
-  pointer-events: none;
-  user-select: none;
 }
 
-#presets,
-#options {
+#options,
+#presets {
   z-index          : 2;
   display          : none;
   position         : absolute;
@@ -315,13 +308,13 @@ select:focus,
   border           : 2px solid #303233;
   border-radius    : 16px;
   background-color : #1d1f21F9;
-  box-shadow: 0px 0px 24px #00000080;
+  box-shadow       : 0px 0px 24px #00000080;
 }
 
 #options {
-  width: 80%;
-  min-height: 200px;
-  padding-right: 6px;
+  width         : 80%;
+  min-height    : 200px;
+  padding-right : 6px;
 }
 
 .preset {
@@ -354,9 +347,10 @@ select:focus,
 .config {
   width            : 100%;
   height           : auto;
+  padding-bottom   : 2px;
+  border-top       : 1px solid #3d3d3d;
   background-color : #303233;
   box-shadow       : inset 0px 2px 8px #00000040;
-  border-top   : 1px solid #3d3d3d;
 }
 
 .colors {
@@ -412,15 +406,15 @@ select:focus,
 }
 
 .progress {
-  z-index       : 2;
-  position      : absolute;
-  width         : 12px;
-  height        : 12px;
-  margin-left   : -6px;
-  border        : 2px solid #3d3d3d80;
-  border-radius : 50%;
-  box-shadow    : 0px 2px 4px #00000080;
-  pointer-events: none;
+  z-index        : 2;
+  position       : absolute;
+  width          : 12px;
+  height         : 12px;
+  margin-left    : -6px;
+  border         : 2px solid #3d3d3d80;
+  border-radius  : 50%;
+  box-shadow     : 0px 2px 4px #00000080;
+  pointer-events : none;
 }
 
 .gradient {
@@ -449,17 +443,17 @@ select:focus,
 .option {
   display         : flex;
   margin          : 4px 6px;
+  align-items     : center;
   flex-flow       : row nowrap;
   justify-content : space-between;
-  align-items: center;
 }
 
 .option-name {
   min-width   : 78px;
   color       : #949495;
   text-align  : right;
+  font-size   : 15px;
   font-weight : 500;
-  font-size: 15px;
 }
 
 input[type=range] {
@@ -513,51 +507,51 @@ input[type=number] {
 }
 
 .radio {
-  padding: 0 6px;
-  font-weight: 500;
-  position: relative;
-  flex: 1 2 min-content;
-  min-width: 0;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
+  display         : flex;
+  position        : relative;
+  min-width       : 0;
+  height          : 24px;
+  padding         : 0 6px;
+  align-items     : center;
+  font-size       : 15px;
+  font-weight     : 500;
+  flex            : 1 2 min-content;
+  justify-content : center;
 }
 
 .radio.enabled {
-  background: #1d1f2130;
+  background : #1d1f2130;
 }
 
 input[type=radio] {
-  position: absolute;
-  opacity: 0;
-  top: 0;
-  left: 0;
-  margin: 0;
+  position : absolute;
+  top      : 0;
+  left     : 0;
+  margin   : 0;
+  opacity  : 0;
 }
 
 .left {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  margin-right: 0;
+  margin-right               : 0;
+  border-top-right-radius    : 0;
+  border-bottom-right-radius : 0;
 }
 
 .center {
-  border-radius: 0;
-  margin: 0;
-  border-left: none;
+  margin        : 0;
+  border-left   : none;
+  border-radius : 0;
 }
 
 .right {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  margin-left: 0;
-  border-left: none;
+  margin-left               : 0;
+  border-left               : none;
+  border-top-left-radius    : 0;
+  border-bottom-left-radius : 0;
 }
 
 .cred {
-  margin-top: 4px;
+  margin-top    : 4px;
   margin-bottom : -6px;
   color         : #303233;
   text-align    : center;
