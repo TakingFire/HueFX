@@ -28,6 +28,14 @@ function hexrgb(hex) {
   return [parseInt(rgb[1], 16), parseInt(rgb[2], 16), parseInt(rgb[3], 16)];
 }
 
+function rgbhex(rgb) {
+  function tohex(c) {
+    let hex = Math.min(c, 255).toString(16);
+    return hex.length == 1 ? "0" + hex : hex;
+  }
+  return '#' + rgb.map(tohex).join('');
+}
+
 function blend(c1, c2, fac) {
   c1 = hexrgb(c1);
   c2 = hexrgb(c2);
@@ -174,18 +182,28 @@ const HueStream = {
     const arr = new ArrayBuffer(9);
     const view = new DataView(arr);
     const light = lights[id];
+    let hex; let fac = 0; let bri;
 
-    let fac = Math.max(Media.audio[light.bnd] / 255, 0);
-    let hex = gradientSlice(lights[id].colors, fac);
+    if (light.mode == 'video') {
+      const rgb = Media.video[light.reg];
+      hex = rgbhex(rgb);
+      bri = Math.min((rgb.reduce((a, b) => a + b) / 3) * 2, 254) * (light.bri / 254);
+    }
+    else {
+      fac = Math.max(Media.audio[light.bnd] / 255, 0);
+      hex = gradientSlice(lights[id].colors, fac);
+      bri = light.bri
+    }
+
     let xy = hexy(hex);
 
-    light.changeLight(hex, light.bri, 0, fac);
+    light.changeLight(hex, bri, 0, fac || 0);
 
     view.setUint8(0, 0);
     view.setUint16(1, parseInt(id));
     view.setUint16(3, parseInt(65535 * xy[0]));
     view.setUint16(5, parseInt(65535 * xy[1]));
-    view.setUint16(7, parseInt(65535 * (light.bri / 254)));
+    view.setUint16(7, parseInt(65535 * (bri / 254)));
 
     return Buffer.from(arr);
   },
@@ -212,7 +230,10 @@ const HueStream = {
       console.log('Connected to Hue Stream');
 
       HueStream.streamLoop = setInterval(function() {
-        Media.updateAudioAvg();
+        const modes = $('.mode').map(function(e) { return $(this).val() }).get();
+        if (modes.includes('audio')) { Media.updateAudioAvg() };
+        if (modes.includes('video')) { Media.updateFrameAvg() };
+
         let packet = HueStream.compilePacket();
         HueStream.udpSocket.write(packet);
       }, 20);
@@ -236,11 +257,11 @@ const Media = {
   stream: null,
   audio: [0, 0, 0, 0],
   video: {
-    center: '#808000',
-    top: '#80FF00',
-    bottom: '#800000',
-    left: '#008000',
-    right: '#FF8000'
+    center: [0, 0, 0],
+    left: [0, 0, 0],
+    top: [0, 0, 0],
+    bottom: [0, 0, 0],
+    right: [0, 0, 0]
   },
 
   startMediaStream: async function() {
@@ -268,6 +289,7 @@ const Media = {
     console.log(this.stream.getTracks());
 
     this.initAudioAnalyser();
+    this.initVideoAnalyser();
   },
 
   stopMediaStream: function() {
@@ -277,10 +299,13 @@ const Media = {
       });
       this.stream = null;
       this.updateAudioAvg = null;
+      this.updateFrameAvg = null;
     }
   },
 
-  updateFrameAvg: function() {
+  initVideoAnalyser: async function() {
+    if (!this.stream) { await this.startMediaStream() }
+
     const video = document.querySelector('video');
     video.srcObject = this.stream;
     video.onloadedmetadata = (e) => video.play();
@@ -289,18 +314,46 @@ const Media = {
     const canvas = document.getElementById('canvas-input');
     const ctx = canvas.getContext('2d');
 
-    function average() {
-      ctx.drawImage(video, -1, 0, 17, 9);
+    function average(x, y, w, h) {
+      let data = ctx.getImageData(x, y, w, h).data;
+      let colors = [];
 
-      // let data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < data.length; i += 4) {
+        colors.push(data.slice(i, i + 4));
+      }
 
-      // requestAnimationFrame(average);
+      // Reduce to average of all colors (min 3)
+      let avg = colors.reduce(function(a, b) {
+        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+      }).map((c) => Math.max(c / colors.length, 3))
+
+      // If smoothed, blend with previous color
+      let fac = lights[1].vsm;
+      let blend = (fac == 0) ?
+        avg.map((c) => Math.floor(c)) :
+        avg.map((c, i) => Math.floor((c * (1 - fac)) + (Media.video.center[i] * fac)));
+
+      return blend;
     }
 
-    requestAnimationFrame(average);
+    function getAverages() {
+      ctx.drawImage(video, -1, 0, 17, 9);
+
+      // let active = getActiveLights().map((id) => lights[id].reg);
+
+      Media.video.center = average(2, 2, 12, 5);
+      Media.video.left = average(0, 0, 2, 9);
+      Media.video.top = average(0, 0, 16, 2);
+      Media.video.bottom = average(0, 7, 16, 2);
+      Media.video.right = average(14, 0, 2, 9);
+    }
+
+    this.updateFrameAvg = function() { requestAnimationFrame(getAverages) }
   },
 
-  initAudioAnalyser: function() {
+  initAudioAnalyser: async function() {
+    if (!this.stream) { await this.startMediaStream() }
+
     const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 10000 });
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 32;
@@ -314,7 +367,7 @@ const Media = {
 
     this.updateAudioAvg = function() {
       analyser.maxDecibels = parseInt((1 - (lights[1].vol / 100)) * -50);
-      analyser.smoothingTimeConstant = lights[1].smt;
+      analyser.smoothingTimeConstant = lights[1].asm;
       analyser.getByteFrequencyData(data);
 
       Media.audio[0] = parseInt(Math.min(data.slice(0, 12).reduce((a, b) => a + b, 0) / 8, 255));
@@ -324,7 +377,8 @@ const Media = {
     }
   },
 
-  updateAudioAvg: null // created by initAudioAnalyser
+  updateAudioAvg: null, // created by initAudioAnalyser
+  updateFrameAvg: null  // created by initVideoAnalyser
 }
 
 class Light {
@@ -344,9 +398,11 @@ class Light {
     this.bri = info.state.bri;         // light brightness
     this.spd = prefs.spd || 30;        // cycle speed
     this.dir = prefs.dir || 'forward'; // cycle motion
+
     this.reg = prefs.reg || 'center';  // video region
     this.bnd = prefs.bnd || '0'        // audio band
-    this.smt = prefs.smt || 0.85;      // audio smoothing
+    this.asm = prefs.asm || 0.85;      // audio smoothing
+    this.vsm = prefs.vsm || 0.50;      // video smoothing
     this.vol = prefs.vol || 80;        // audio peak volume
 
     this.color = prefs.color || '#f4bf75';
@@ -359,9 +415,11 @@ class Light {
       bri: this.bri,
       spd: this.spd,
       dir: this.dir,
+
       reg: this.reg,
       bnd: this.bnd,
-      smt: this.smt,
+      asm: this.asm,
+      vsm: this.vsm,
       vol: this.vol,
 
       color: this.color,
@@ -419,10 +477,9 @@ class Light {
                 <option value="color" ${this.mode == 'color' ? 'selected' : ''} title="Set light to selected color">Color</option>
                 <option value="cycle" ${this.mode == 'cycle' ? 'selected' : ''} title="Smoothly loop between selected colors">Cycle</option>
                 <option value="audio" ${this.mode == 'audio' ? 'selected' : ''} title="Change light color with music" ${isElectron ? '' : 'disabled'}>Audio</option>
+                <option value="video" ${this.mode == 'video' ? 'selected' : ''} title="Ambient color from a video input" ${isElectron ? '' : 'disabled'}>Video</option>
               </select>
-              <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start"
-                ${this.info.state.reachable ? '' : 'disabled '}
-                ${this.playing ? 'enabled>■' : '>⯈'}</button>
+              <button type="button" class="start" style="border-radius:0 6px 6px 0;" title="Start" ${this.info.state.reachable ? '' : 'disabled '}>⯈</button>
             </div>
             <button type="button" class="dropdown" title="Expand"><span>🡣</span></button>
             <button type="button" class="preset" title="Presets"
@@ -475,10 +532,16 @@ class Light {
               </div>
             </div>
 
-            <div class="option option-smt">
+            <div class="option option-asm">
               <label class="option-name">Smoothing:</label>
-              <input type="range"  min="0.7" max="0.99" step="0.01" value="${this.smt}">
-              <input type="number" min="0.7" max="0.99" step="0.01" value="${this.smt}">
+              <input type="range"  min="0.7" max="0.99" step="0.01" value="${this.asm}">
+              <input type="number" min="0.7" max="0.99" step="0.01" value="${this.asm}">
+            </div>
+
+            <div class="option option-vsm">
+              <label class="option-name">Smoothing:</label>
+              <input type="range"  min="0" max="0.95" step="0.05" value="${this.vsm}">
+              <input type="number" min="0" max="0.95" step="0.05" value="${this.vsm}">
             </div>
 
             <div class="option option-vol">
@@ -872,7 +935,7 @@ async function main() {
     light.storePrefs();
   });
 
-  $('.option:not(.option-smt, .option-vol) input').on('input', function() {
+  $('.option:not(.option-asm, .option-vol) input').on('input', function() {
     $(this).parent().find('input').val($(this).val());
   });
 
@@ -881,7 +944,8 @@ async function main() {
     let config = $(this).parents('.config');
     light.bri = parseInt(config.find('.option-bri input').val());
     light.spd = parseInt(config.find('.option-spd input').val());
-    light.smt = parseFloat(config.find('.option-smt input').val());
+    light.asm = parseFloat(config.find('.option-asm input').val());
+    light.vsm = parseFloat(config.find('.option-vsm input').val());
     light.vol = parseInt(config.find('.option-vol input').val());
 
     light.dir = config.find('.option-dir input:checked').val();
@@ -900,7 +964,6 @@ async function main() {
     options.src = config.find('.option-src input:checked').val();
     options.min = config.find('.option-min input:checked').val();
 
-    console.log(options);
     localStorage['options'] = JSON.stringify(options);
     config.find('.radio').removeClass('enabled');
     config.find('.radio input:checked').parent().addClass('enabled');
@@ -911,6 +974,11 @@ async function main() {
       lights: lights
     });
   });
+
+  $('#close-options').on('click', function() {
+    $('#options').fadeOut(150);
+    $('#filter').fadeOut(150);
+  })
 
   $('#export-prefs').on('click', async function() {
     const options = {
@@ -975,8 +1043,12 @@ async function main() {
     }
   });
 
-  $('.option-smt input').on('input', function() {
-    $('.option-smt input').val($(this).val()).change();
+  $('.option-asm input').on('input', function() {
+    $('.option-asm input').val($(this).val()).change();
+  });
+
+  $('.option-vsm input').on('input', function() {
+    $('.option-vsm input').val($(this).val()).change();
   });
 
   $('.option-vol input').on('input', function() {
@@ -988,7 +1060,7 @@ async function main() {
 
     isElectron ? $('#filter').fadeIn(150) : {};
     $('#presets').fadeIn(150)
-      .css('top', $(this).offset().top - 34)  // -20
+      .css('top', Math.min($(this).offset().top - 34, $('#content').height() - $('#presets').height()))  // -20
       .css('left', !isElectron ? (content.offset().left + content.width() + 36) : '')
       .data('target', getLight($(this)).id);
   });
@@ -1052,13 +1124,14 @@ async function main() {
       case 'color':
         main.find('.option-bri').show();
         break;
-
       case 'cycle':
         main.find('.option-bri, .option-spd, .option-dir').show();
         break;
-
       case 'audio':
-        main.find('.option-bri, .option-smt, .option-bnd, .option-vol').show();
+        main.find('.option-bri, .option-asm, .option-bnd, .option-vol').show();
+        break;
+      case 'video':
+        main.find('.option-bri, .option-vsm, .option-reg').show();
     }
     light.updateColors();
     light.storePrefs();
@@ -1088,6 +1161,7 @@ async function main() {
             return;
 
           case 'audio':
+          case 'video':
             if (getActiveLights().length == 0) {
               if (HueStream.udpSocket) { await HueStream.stopUdpSocket() }
               if (Media.stream) { await Media.stopMediaStream() }
@@ -1117,6 +1191,7 @@ async function main() {
             return;
 
           case 'audio':
+          case 'video':
             light.playing = true;
             if (!Media.stream) { await Media.startMediaStream() }
             if (!HueStream.udpSocket) { await HueStream.startUdpSocket() }
@@ -1139,7 +1214,6 @@ async function main() {
   });
 
   ipcRenderer.on('toggleLight', function(e, id) {
-    console.log(id);
     $(`#${id} .start`).click();
   });
 }

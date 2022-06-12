@@ -41,7 +41,7 @@
         <button type="button" id="reset-prefs" class="button-header right" style="filter:sepia(0.4) hue-rotate(-30deg);transition:0.2s;">Reset</button>
       </div>
 
-      <!-- <button type="button" id="close-options" class="button-header" style="width:100%;margin-top:16px;">Done</button> -->
+      <button type="button" id="close-options" class="button-header" style="width:100%;margin-top:16px;">Done</button>
     </div>
 
     <div id="content">
@@ -76,12 +76,11 @@
         <div class="placeholder light"><div class="gradient"></div></div>
       </div>
 
-      <!-- <div style="display:flex;justify-content:center;">
+      <div style="display:none;">
+        <!-- background elements for video processing -->
         <video src="" style="width:16px;height:9px;" muted></video>
-        <canvas id="canvas-input" width="16" height="9" style="background-color:black;max-height:9px;max-width:16px;"></canvas>
-        <canvas id="canvas-output" width="16" height="9" style="background-color:black;max-height:9px;max-width:16px;"></canvas>
-        <button onclick="Media.getFrameAverage();"></button>
-      </div> -->
+        <canvas id="canvas-input" width="16" height="9"></canvas>
+      </div>
 
       <p class="cred">Built by <a href="https://bacur.xyz" target="_blank">TF</a></p>
     </div>

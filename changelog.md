@@ -49,4 +49,14 @@
 
 * Shortened header buttons
 * Raised min audio smoothing from 0.5 to 0.7
-* Changed Audio mode description
+* Changed audio mode description
+
+#### Version 0.5.0:
++ Added light mode 'video'
+  + Added region option for center/left/right/top/bottom
+  + Added separate smoothing option for video
++ Added Done button in options menu
+
+* Fixed presets menu going offscreen if too low
+* Removed transition on color inputs
+* Minor cleanup
