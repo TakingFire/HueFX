@@ -890,8 +890,8 @@ async function main() {
     main.find('.add, .remove').toggle();
     main.find('.color').toggleClass('color-expanded');
     main.find('.gradient').toggleClass('gradient-back');
-    main.find('.options').slideToggle(250);
-    main.find('.progress').fadeToggle({ duration: 100, queue: false });
+    main.find('.options').stop().slideToggle(250);
+    main.find('.progress').stop().fadeToggle({ duration: 100, queue: false });
   });
 
   $('.colors').hover(

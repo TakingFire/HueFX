@@ -60,3 +60,7 @@
 * Fixed presets menu going offscreen if too low
 * Removed transition on color inputs
 * Minor cleanup
+
+#### Patch 0.5.1:
+* Fixed animation queuing on dropdowns
+* Fixed clickthrough on blurred background
