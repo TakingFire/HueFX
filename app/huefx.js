@@ -505,19 +505,22 @@ class Light {
 
           <form class="options">
 
-            <div class="option option-bri">
+            <div class="option option-bri"
+            title="The maximum brightness for this light.">
               <label class="option-name">Brightness:</label>
               <input type="range"  min="0" max="254" step="1" value="${this.bri}">
               <input type="number" min="0" max="254" step="1" value="${this.bri}">
             </div>
 
-            <div class="option option-spd">
+            <div class="option option-spd"
+            title="The time (in seconds) for this light to complete the color sequence.">
               <label class="option-name">Speed:</label>
               <input type="range"  min="${this.colors.length}" max="240" step="1" value="${this.spd}">
               <input type="number" min="${this.colors.length}" max="240" step="1" value="${this.spd}">
             </div>
 
-            <div class="option option-dir" style="justify-content:flex-start;">
+            <div class="option option-dir" style="justify-content:flex-start;"
+            title="How this light will move through the color gradient.">
               <label class="option-name">Motion:</label>
               <div style="width:60%;display:flex;margin:0 8px;">
                 <label class="radio left ${this.dir == 'forward' ? 'enabled' : ''}">Forward
@@ -532,25 +535,29 @@ class Light {
               </div>
             </div>
 
-            <div class="option option-asm">
+            <div class="option option-asm"
+            title="Filters out rapid flickering from audio volume.\nNote: this value is shared across all lights.">
               <label class="option-name">Smoothing:</label>
               <input type="range"  min="0.7" max="0.99" step="0.01" value="${this.asm}">
               <input type="number" min="0.7" max="0.99" step="0.01" value="${this.asm}">
             </div>
 
-            <div class="option option-vsm">
+            <div class="option option-vsm"
+            title="Filters out rapid flickering from video color.\nNote: this value is shared across all lights.">
               <label class="option-name">Smoothing:</label>
               <input type="range"  min="0" max="0.95" step="0.05" value="${this.vsm}">
               <input type="number" min="0" max="0.95" step="0.05" value="${this.vsm}">
             </div>
 
-            <div class="option option-vol">
+            <div class="option option-vol"
+            title="The volume required for a light to hit its maximum.\nNote: this value is shared across all lights.">
               <label class="option-name">Volume:</label>
               <input type="range"  min="0" max="100" step="1" value="${this.vol}">
               <input type="number" min="0" max="100" step="1" value="${this.vol}">
             </div>
 
-            <div class="option option-reg" style="justify-content:flex-start;">
+            <div class="option option-reg" style="justify-content:flex-start;"
+            title="The region of the screen this light will use to determine color.">
               <label class="option-name">Region:</label>
               <div style="width:60%;display:flex;margin:0 8px;">
                 <label class="radio left ${this.reg == 'center' ? 'enabled' : ''}" title="Center">▣
@@ -571,7 +578,8 @@ class Light {
               </div>
             </div>
 
-            <div class="option option-bnd" style="justify-content:flex-start;">
+            <div class="option option-bnd" style="justify-content:flex-start;"
+            title="The frequency band(s) this light will repond to.">
               <label class="option-name">Frequency:</label>
               <div style="width:60%;display:flex;margin:0 8px;">
                 <label class="radio left ${this.bnd == '0' ? 'enabled' : ''}">All
@@ -775,7 +783,8 @@ function initOptions() {
   let min = options.min || 'taskbar';
 
   const elements =
-    `<div class="option option-src" style="justify-content:space-between;">
+    `<div class="option option-src" style="justify-content:space-between;"
+    title="The device audio and video will be read from">
       <label class="option-name">AV Source:</label>
       <div style="width:70%;display:flex;margin-left:8px;">
         <label class="radio left ${src == 'desktop' ? 'enabled' : ''}">Desktop
@@ -787,7 +796,8 @@ function initOptions() {
       </div>
     </div>
 
-    <div class="option option-min" style="justify-content:space-between;">
+    <div class="option option-min" style="justify-content:space-between;"
+    title="Where the window will go on minimize.\nNote: using the Exit button closes the application.">
       <label class="option-name">Minimize:</label>
       <div style="width:70%;display:flex;margin-left:8px;">
         <label class="radio left ${min == 'taskbar' ? 'enabled' : ''}" style="flex-grow:0.5;">Taskbar
@@ -1150,12 +1160,10 @@ async function main() {
         light.playing = false;
         $(this).removeClass('enabled').html('⯈').attr('title', 'Start');
 
-        if (getActiveLights().length == 0) {
-          $('#start-all').removeClass('enabled').html('⯈ Start All');
-        }
+        if (getActiveLights().length == 0) { $('#start-all').removeClass('enabled').html('⯈ Start All') }
+        $('#' + light.id).find('.mode').prop('disabled', false);
 
         switch (light.mode) {
-
           case 'cycle':
             light.stopCycle();
             return;
@@ -1178,12 +1186,10 @@ async function main() {
         }
       }
       else {
-        if (getActiveLights().length == lights.length) {
-          $('#start-all').addClass('enabled').html('■ Stop All');
-        }
+        if (getActiveLights().length == lights.length) { $('#start-all').addClass('enabled').html('■ Stop All') }
+        $('#' + light.id).find('.mode').prop('disabled', true);
 
         switch (light.mode) {
-
           case 'cycle':
             light.playing = true;
             light.startCycle();

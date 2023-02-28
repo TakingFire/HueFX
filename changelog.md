@@ -51,6 +51,7 @@
 * Raised min audio smoothing from 0.5 to 0.7
 * Changed audio mode description
 
+
 #### Version 0.5.0:
 + Added light mode 'video'
   + Added region option for center/left/right/top/bottom
@@ -64,3 +65,12 @@
 #### Patch 0.5.1:
 * Fixed animation queuing on dropdowns
 * Fixed clickthrough on blurred background
+
+#### Patch 0.5.2:
++ Added tooltips for most buttons & settings
+- Removed accidental margin on light elements
+- Removed signature
+
+* Updated app icon
+* Fixed tray not working when an effect is active
+* Disabled mode menu when an effect is active
